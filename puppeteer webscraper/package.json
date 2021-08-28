@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "mkdirp": "^1.0.4",
+    "puppeteer": "^10.2.0",
+    "request": "^2.88.2"
+  }
+}
