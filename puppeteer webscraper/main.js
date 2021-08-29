@@ -11,8 +11,9 @@ sample urls
 main_url = process.argv[2]
 directory = process.argv[3];
 
-console.log(main_url);
-console.log(directory);
+
+console.log(`Main url- ${main_url}`);
+console.log(`Input directory- ${directory}`);
 var mkdirp = require('mkdirp');
 var fs = require('fs');
 var request = require('request');
@@ -42,9 +43,11 @@ async function getAlbumLinks(url){
 }
 
 async function downloadPhotos(urls){
-    console.log("starting to download photos");
+    await tabbedLog("starting to download photos");
+    let i = 1;
     for(const url of urls){
-        console.log(url);
+        await tabbedLog(`Link number ${i}`);
+        i++;
         const pupp = require('puppeteer');
         const browser = await pupp.launch({
             headless: true,
@@ -59,12 +62,7 @@ async function downloadPhotos(urls){
         });
         await page.setDefaultNavigationTimeout(0);
 
-        const photoLinks = await page.evaluate(() => {
-            let contents = [...document.querySelectorAll('figure[class="figure"] a')];
-            return contents.map((con) => con.getAttribute('href').trim());
-        });
-
-        console.log("getting desitnation...");
+        await tabbedLog("generating desitnation...");
         const dest = await page.evaluate(
             ()=>{
                 let contents = [...document.querySelectorAll('div[class="container"] h1[class="h3"]')]
@@ -73,8 +71,22 @@ async function downloadPhotos(urls){
                 );
             }
         );
+        let dir = `${directory}\\${dest[0]}`;
+        await tabbedLog(`Download destination- ${dir}`);
+        if(fs.existsSync(dir)){
+            await tabbedLog(`\t${dir} Already downloaded\n`);
+            await browser.close();
+            continue;
+        }
+
+        const photoLinks = await page.evaluate(() => {
+            let contents = [...document.querySelectorAll('figure[class="figure"] a')];
+            return contents.map((con) => con.getAttribute('href').trim());
+        });
+
+        
         await browser.close();
-        console.log(dest[0]);
+        
         await savePhotos(photoLinks,dest[0]);
     }
 }
@@ -84,7 +96,7 @@ async function savePhotos(links,dest){
     await createDir(dir);
     let i = 1;
     for (const link of links){
-        const filePath =`${directory}\\${dest}\\${dest} - ${i}.jpg`;
+        const filePath =`${dir}\\${dest} - ${i}.jpg`;
 
         request.head(link, function(err,res,body){
             request(link).pipe(fs.createWriteStream(filePath));
@@ -93,6 +105,10 @@ async function savePhotos(links,dest){
 
         i++;
     }
+}
+
+async function tabbedLog(str){
+    console.log(`\t${str}`);
 }
 
 async function checkPage(url){
@@ -123,11 +139,9 @@ async function checkPage(url){
             return tmp != null ? parseInt(tmp[tmp.length-2])  : 1;
         }
     );
-    console.log("printing numb");
-    console.log(pageCount);
     folderTitle = folderTitle.toString().split("|")[0].trim();
-    directory = `${directory}\\${folderTitle}`;
-    console.log(directory);
+    directory = `${directory}${folderTitle}`;
+    await tabbedLog(`Main Directory- ${directory}`);
     
     await createDir(directory);
     
@@ -144,10 +158,11 @@ async function createDir(dir){
 
 async function run(){
     const pages = await checkPage(main_url);
-    console.log(pages);
+    await tabbedLog(`Number of pages- ${pages}`);
     for(let i = 1; i<=pages; i++){
+        console.log(`Page ${i}`);
         const links = await getAlbumLinks(`${main_url}/page/${i}`);
-        console.log(`Links:\n${links}`);
+        await tabbedLog(`Links - ${links.length}`);
         await downloadPhotos(links);
     }
 }
